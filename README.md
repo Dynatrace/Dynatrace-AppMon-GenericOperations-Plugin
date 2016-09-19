@@ -1,7 +1,7 @@
 ## Generic Operations Plugin
 
 Plugin that allows for generic operations on a pair of measures. The generic operations include addition, subtraction, division and multiplication on the measure.
-The plugin utilizes the Dynatrace RESTful API to retrive the data from the measures. It is a requirement to have the measures inside a dashboard, so that the data can be exported and manipulated
+The plugin utilizes the Dynatrace RESTful API to retrieve the data from the measures. It is a requirement to have the measures inside a dashboard, so that the data can be exported and manipulated
 
 ##Setup
 
