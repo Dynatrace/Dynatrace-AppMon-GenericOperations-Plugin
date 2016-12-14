@@ -48,7 +48,7 @@ public class IPlanetMonitor implements Monitor {
 
 	private static final Logger log = Logger.getLogger(IPlanetMonitor.class.getName());
 	private static final String DIVISION = "/";
-	private static final String SUBSTRACTION = "-";
+	private static final String SUBTRACTION = "-";
 	private static final String MULTIPLICATION = "*";
 	private static final String ADDITION = "+";
 
@@ -189,7 +189,7 @@ public class IPlanetMonitor implements Monitor {
 					result = Math.abs(measureOneValue / measureTwoValue);
 					break;
 
-				case SUBSTRACTION:
+				case SUBTRACTION:
 					result = Math.abs(measureOneValue - measureTwoValue);
 					break;
 				default:
