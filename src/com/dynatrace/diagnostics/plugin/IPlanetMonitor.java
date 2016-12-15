@@ -7,15 +7,12 @@
 
 package com.dynatrace.diagnostics.plugin;
 
-import java.io.IOException;
-import java.net.ConnectException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -34,8 +31,6 @@ import javax.xml.xpath.XPathFactory;
 
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
-import org.w3c.dom.NamedNodeMap;
-import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
 import com.dynatrace.diagnostics.pdk.Monitor;
@@ -54,7 +49,13 @@ public class IPlanetMonitor implements Monitor {
 
 	// initialize config variables
 	private String firstMeasure;
+	
+	// AG Added - 14/12/2016
+	private boolean firstMeasureIsStaticBool = false;
 	private String secondMeasure;
+	// AG Added - 14/12/2016
+	private boolean secondMeasureIsStaticBool = false;
+	
 	private String operation;
 	// The type of aggregation to apply
 	private Map<String, String> aggregationMap;
@@ -110,8 +111,15 @@ public class IPlanetMonitor implements Monitor {
 		restAPI = new ServerRestAPI(env.getConfigString("dtServer"), env.getConfigString("username"),
 				env.getConfigPassword("password"));
 		operation = env.getConfigString("operation");
+		// AG Added 14/12/2016
+		firstMeasureIsStaticBool = env.getConfigBoolean("first_measure_static_bool");
+		logFine("First Measure Bool:" + firstMeasureIsStaticBool);
 		firstMeasure = env.getConfigString("firstMeasure");
+		
+		secondMeasureIsStaticBool = env.getConfigBoolean("second_measure_static_bool");
+		logFine("Second Measure Bool:" + secondMeasureIsStaticBool);
 		secondMeasure = env.getConfigString("secondMeasure");
+		
 		aggregationMap = new HashMap<String, String>();
 		aggregationMap.put("Minimum", "min");
 		aggregationMap.put("Maximum", "max");
@@ -149,48 +157,98 @@ public class IPlanetMonitor implements Monitor {
 				Element measure = (Element) listDataRows.item(i);
 				String measurename = measure.getAttributes().getNamedItem("measure").getNodeValue();
 				aggregation = measure.getAttributes().getNamedItem("aggregation").getNodeValue();
-				if ((measurename.contains(secondMeasure) || measurename.contains(firstMeasure))
-						&& measureList.size() < 2) {
+				if ((!firstMeasureIsStaticBool && measurename.contains(firstMeasure)) || (!secondMeasureIsStaticBool && measurename.contains(secondMeasure)))
+				{
+					logFine("Adding: " + measurename + " because it's not static");
 					measureList.add(measure);
 					aggregationList.add(aggregationMap.get(aggregation));
 				}
+				/*
+				 * if ((measurename.contains(secondMeasure) || measurename.contains(firstMeasure))&& measureList.size() < 2) {
+				 *	measureList.add(measure);
+				 *	aggregationList.add(aggregationMap.get(aggregation));
+				 *
+				 * }
+				 */
 			}
 			// Assign the aggregation type
 			aggregationType = aggregationList.iterator().next();
 			// Only return the last item in the measurements
 			measurementList = measureList.stream().map(el -> el.getElementsByTagName("measurement")).collect(Collectors.toList());
 
-			// Get last element in the list
-			Element measureOneElement = (Element) measurementList.get(0).item(measurementList.get(0).getLength() - 1);
-			Element measureTwoElement = (Element) measurementList.get(1).item(measurementList.get(1).getLength() - 1);
+			Double measureOneValue = null;
+			Double measureTwoValue = null;
+			Long timestamp1 = null;
+			Long timestamp2 = null;
+			
+			if (firstMeasureIsStaticBool) // static measure. Parse it.
+			{
+				measureOneValue = Double.parseDouble(firstMeasure);
+				timestamp1 = System.currentTimeMillis();
+				logFine("Static Measure One Value: " + measureOneValue);
+			}
+			else // non-static. Get from XML
+			{
+				
+				Element measureOneElement = (Element) measurementList.get(0).item(measurementList.get(0).getLength() - 1);
+				if (measureOneElement == null) measureOneValue = Double.valueOf(0); // If dashboard has no measurements. Protect against null values.
+				else measureOneValue = Double.parseDouble(measureOneElement.getAttributes().getNamedItem(aggregationType).getNodeValue());
+				timestamp1 = Long.parseLong(measureOneElement.getAttributes().getNamedItem("timestamp").getNodeValue());
+				logFine("Non static measure one: " + measureOneValue);
+			}
+			if (secondMeasureIsStaticBool) // static measure. Parse it.
+			{
+				measureTwoValue = Double.parseDouble(secondMeasure);
+				timestamp2 = System.currentTimeMillis();
+				logFine("Static Measure Two Value: " + measureTwoValue);
+			}
+			else // non-static. Get from XML
+			{
+				Element measureTwoElement = (Element) measurementList.get(1).item(measurementList.get(1).getLength() - 1);
+				if (measureTwoElement == null) measureTwoValue = Double.valueOf(0); // If dashboard has no measurements. Protect against null values.
+				else measureTwoValue = Double.parseDouble(measureTwoElement.getAttributes().getNamedItem(aggregationType).getNodeValue());
+				
+				timestamp2 = Long.parseLong(measureTwoElement.getAttributes().getNamedItem("timestamp").getNodeValue());
+				logFine("Non static measure two: " + measureTwoValue);
+			}
 
-			Long timestamp1 = Long
-					.parseLong(measureOneElement.getAttributes().getNamedItem("timestamp").getNodeValue());
-			Long timestamp2 = Long
-					.parseLong(measureTwoElement.getAttributes().getNamedItem("timestamp").getNodeValue());
-			Double measureOneValue = Double
-					.parseDouble(measureOneElement.getAttributes().getNamedItem(aggregationType).getNodeValue());
-			Double measureTwoValue = Double
-					.parseDouble(measureTwoElement.getAttributes().getNamedItem(aggregationType).getNodeValue());
-
-			if (timestamp1.longValue() < timestamp2.longValue()) {
+			/* 
+			 * Not sure what this is doing? AG.
+			 * Temporarily wrap in boolean condition which ignores when either measure is static. 
+			 */
+			if ((timestamp1.longValue() < timestamp2.longValue()) && (firstMeasureIsStaticBool || secondMeasureIsStaticBool)) {
 				result = measureOneValue.doubleValue();
-			} else {
+			}
+			else
+			{				
 				switch (operation) {
 				case ADDITION:
 					result = Math.abs(measureOneValue + measureTwoValue);
+					logFine("Addition Result: " + result);
 					break;
 
 				case MULTIPLICATION:
 					result = Math.abs(measureOneValue * measureTwoValue);
+					logFine("Multiplication Result: " + result);
 					break;
 
 				case DIVISION:
-					result = Math.abs(measureOneValue / measureTwoValue);
+					// Protect against division by zero errors.
+					if (measureTwoValue == 0)
+					{
+						logSevere("Division by Zero error.");
+						result = -1;
+					}
+					else
+					{
+						result = Math.abs(measureOneValue / measureTwoValue);
+					}
+					logFine("Division Result: " + result);
 					break;
 
 				case SUBTRACTION:
 					result = Math.abs(measureOneValue - measureTwoValue);
+					logFine("Subtraction Result: " + result);
 					break;
 				default:
 					break;
@@ -202,13 +260,15 @@ public class IPlanetMonitor implements Monitor {
 				measure.setValue(result);
 			}
 
-			status.setMessage("Aggregation: " + aggregationType + "\nNode 1 value: " + measureOneElement.getAttributes().getNamedItem(aggregationType).getNodeValue() + "\nNode 2 Value: " + measureTwoElement.getAttributes().getNamedItem(aggregationType).getNodeValue());
+			//status.setMessage("Aggregation: " + aggregationType + "\nNode 1 value: " + measureOneElement.getAttributes().getNamedItem(aggregationType).getNodeValue() + "\nNode 2 Value: " + measureTwoElement.getAttributes().getNamedItem(aggregationType).getNodeValue());
+			// AG Added - 14/12/2016
+			status.setMessage("Aggregation: " + aggregationType + "\nNode 1 value: " + measureOneValue + "\nNode 2 Value: " + measureTwoValue);
 
 			} catch (Throwable e) {
 			   return status;
 			}
 			HttpsURLConnection.setDefaultHostnameVerifier(defaultVerifier);
-			logInfo("WTF");
+			//logInfo("WTF");
 		} catch (Exception ce) {
 			status.setException(ce);
 			status.setStatusCode(Status.StatusCode.PartialSuccess);
