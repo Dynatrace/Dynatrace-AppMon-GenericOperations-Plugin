@@ -14,7 +14,9 @@
       <property key="username" label="Username" type="string" description="The dynatrace username. This is necessary in order to access the server's RESTful interface&#xA;" default="" multiline="false" />
       <property key="password" label="Password" type="password" description="The password of the corresponding username. Necessary in order to access the Dynatrace RESTful interface" default="" />
       <property key="dashboardName" label="Dashboard Name" type="string" description="The name of the dashboard to retrieve the XML" default="" multiline="false" />
+      <property key="first_measure_static_bool" label="Is First Measure Static?" type="boolean" description="Is the first metric a static value?" default="false" />
       <property key="firstMeasure" label="First Measure" type="string" description="The first measure&#xA;" default="" multiline="false" />
+      <property key="second_measure_static_bool" label="Is Second Measure Static?" type="boolean" description="Is second measure static?" default="false" />
       <property key="secondMeasure" label="Second Measure" type="string" description="The measure to be subtracted from another" default="" multiline="false" />
       <property key="operation" label="Operation" type="list" description="My property description ..." default="+">
         <list>
