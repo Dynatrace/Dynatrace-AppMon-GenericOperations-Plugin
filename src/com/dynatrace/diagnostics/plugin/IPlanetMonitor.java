@@ -216,11 +216,15 @@ public class IPlanetMonitor implements Monitor {
 			 * Not sure what this is doing? AG.
 			 * Temporarily wrap in boolean condition which ignores when either measure is static. 
 			 */
+			/*
+			 * Does not allow static values removing to allow use. KK.
+			 * Commenting until use is known
 			if ((timestamp1.longValue() < timestamp2.longValue()) && (firstMeasureIsStaticBool || secondMeasureIsStaticBool)) {
 				result = measureOneValue.doubleValue();
 			}
 			else
-			{				
+			{
+			*/				
 				switch (operation) {
 				case ADDITION:
 					result = Math.abs(measureOneValue + measureTwoValue);
@@ -253,7 +257,7 @@ public class IPlanetMonitor implements Monitor {
 				default:
 					break;
 				}
-			}
+			//}
 
 			Collection<MonitorMeasure> monitorMeasures = env.getMonitorMeasures("ResultGroup", "result");
 			for (MonitorMeasure measure : monitorMeasures) {
@@ -265,7 +269,8 @@ public class IPlanetMonitor implements Monitor {
 			status.setMessage("Aggregation: " + aggregationType + "\nNode 1 value: " + measureOneValue + "\nNode 2 Value: " + measureTwoValue);
 
 			} catch (Throwable e) {
-			   return status;
+				logFine("Issue with REST API Call");
+			    return status;
 			}
 			HttpsURLConnection.setDefaultHostnameVerifier(defaultVerifier);
 			//logInfo("WTF");
